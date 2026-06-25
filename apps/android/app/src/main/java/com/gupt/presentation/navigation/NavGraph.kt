@@ -22,6 +22,7 @@ sealed class Screen(val route: String) {
         fun createRoute(username: String) = "chat/$username"
     }
     object MeshDiscovery : Screen("mesh_discovery")
+    object Profile : Screen("profile")
 }
 
 @Composable
@@ -87,7 +88,7 @@ fun GuptNavGraph(
                     navController.navigate(Screen.Chat.createRoute(username))
                 },
                 onNavigateToSettings = {
-                    navController.navigate(Screen.MeshDiscovery.route)
+                    navController.navigate(Screen.Profile.route)
                 }
             )
         }
@@ -111,6 +112,19 @@ fun GuptNavGraph(
                 },
                 onNavigateToChat = { username ->
                     navController.navigate(Screen.Chat.createRoute(username))
+                }
+            )
+        }
+        
+        composable(route = Screen.Profile.route) {
+            com.gupt.presentation.screens.profile.ProfileScreen(
+                onNavigateBack = { navController.popBackStack() },
+                onNavigateToMesh = { navController.navigate(Screen.MeshDiscovery.route) },
+                onLogout = {
+                    com.gupt.domain.SessionManager.logout()
+                    navController.navigate(Screen.Login.route) {
+                        popUpTo(0) { inclusive = true } // Clear entire backstack
+                    }
                 }
             )
         }

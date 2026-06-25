@@ -88,6 +88,35 @@ object SessionManager {
         }
     }
 
+    fun updateConversation(id: String, lastMessage: String, unreadIncrement: Int = 0) {
+        val index = conversations.indexOfFirst { it.id == id }
+        if (index != -1) {
+            val conv = conversations[index]
+            val updated = conv.copy(
+                lastMessage = lastMessage,
+                unreadCount = conv.unreadCount + unreadIncrement,
+                time = java.text.SimpleDateFormat("HH:mm", java.util.Locale.getDefault()).format(java.util.Date())
+            )
+            val newList = conversations.toMutableList()
+            newList.removeAt(index)
+            newList.add(0, updated) // Move to top
+            conversations = newList
+            saveConversations()
+        }
+    }
+    
+    fun resetUnreadCount(id: String) {
+        val index = conversations.indexOfFirst { it.id == id }
+        if (index != -1) {
+            val conv = conversations[index]
+            val updated = conv.copy(unreadCount = 0)
+            val newList = conversations.toMutableList()
+            newList[index] = updated
+            conversations = newList
+            saveConversations()
+        }
+    }
+
     fun removeConversation(id: String) {
         conversations = conversations.filterNot { it.id == id }
         saveConversations()

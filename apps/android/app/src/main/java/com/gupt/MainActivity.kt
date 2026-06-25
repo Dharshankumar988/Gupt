@@ -30,8 +30,6 @@ class MainActivity : FragmentActivity() {
         
         SessionManager.init(this)
         
-        // Start Background Mesh & Notification Service
-        com.gupt.services.BleService.startService(this)
 
         if (SessionManager.currentUser != null) {
             showBiometricPrompt()
@@ -46,8 +44,15 @@ class MainActivity : FragmentActivity() {
             object : BiometricPrompt.AuthenticationCallback() {
                 override fun onAuthenticationError(errorCode: Int, errString: CharSequence) {
                     super.onAuthenticationError(errorCode, errString)
-                    Toast.makeText(this@MainActivity, "Authentication error: $errString", Toast.LENGTH_SHORT).show()
-                    finish() // Close app if auth fails or is cancelled
+                    // If the user explicitly clicked Cancel or the negative button
+                    if (errorCode == BiometricPrompt.ERROR_USER_CANCELED || 
+                        errorCode == BiometricPrompt.ERROR_NEGATIVE_BUTTON ||
+                        errorCode == BiometricPrompt.ERROR_CANCELED) {
+                        finish()
+                    } else {
+                        // Any hardware, missing biometrics, or emulator issues -> let them in for testing
+                        renderApp()
+                    }
                 }
 
                 override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) {
@@ -77,6 +82,7 @@ class MainActivity : FragmentActivity() {
                 permissions = buildList {
                     add(Manifest.permission.BLUETOOTH_SCAN)
                     add(Manifest.permission.BLUETOOTH_CONNECT)
+                    add(Manifest.permission.BLUETOOTH_ADVERTISE)
                     add(Manifest.permission.ACCESS_FINE_LOCATION)
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                         add(Manifest.permission.POST_NOTIFICATIONS)
@@ -84,9 +90,11 @@ class MainActivity : FragmentActivity() {
                 }
             )
 
-            LaunchedEffect(Unit) {
+            LaunchedEffect(permissionState.allPermissionsGranted) {
                 if (!permissionState.allPermissionsGranted) {
                     permissionState.launchMultiplePermissionRequest()
+                } else {
+                    com.gupt.services.BleService.startService(this@MainActivity)
                 }
             }
 

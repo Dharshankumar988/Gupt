@@ -61,6 +61,9 @@ class ChatViewModel @Inject constructor() : ViewModel() {
 
                 val uiMessages = historical.sortedByDescending { it.created_at ?: "" }.map { it.toMessageModel(currentUser) }
                 _messages.value = uiMessages
+                
+                // Clear unread indicator
+                SessionManager.resetUnreadCount(peerUsername)
 
                 // 2. Subscribe to realtime updates
                 val channel = SupabaseConfig.client.realtime.channel("chat_$convId")
@@ -82,7 +85,11 @@ class ChatViewModel @Inject constructor() : ViewModel() {
                     insertChanges.collect { insert ->
                         val newMsg = jsonConfig.decodeFromJsonElement<EncryptedMessage>(insert.record)
                         if (_messages.value.none { it.id == newMsg.id }) {
-                            _messages.value = listOf(newMsg.toMessageModel(currentUser)) + _messages.value
+                            val uiMsg = newMsg.toMessageModel(currentUser)
+                            _messages.value = listOf(uiMsg) + _messages.value
+                            
+                            // Update preview in conversations list, without incrementing unread count
+                            SessionManager.updateConversation(peerUsername, uiMsg.text, 0)
                         }
                     }
                 }
@@ -128,6 +135,9 @@ class ChatViewModel @Inject constructor() : ViewModel() {
                     replyToMessage = replyTo
                 )
                 _messages.value = listOf(optimisticMsg) + _messages.value
+                
+                // Update preview in conversations list
+                SessionManager.updateConversation(peer, payloadObj.text, 0)
 
                 @Serializable
                 data class InsertMessage(

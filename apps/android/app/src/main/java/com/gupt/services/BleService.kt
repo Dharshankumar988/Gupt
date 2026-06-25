@@ -23,6 +23,7 @@ import io.github.jan.supabase.realtime.PostgresAction
 import io.github.jan.supabase.realtime.channel
 import io.github.jan.supabase.realtime.postgresChangeFlow
 import io.github.jan.supabase.realtime.realtime
+import io.github.jan.supabase.postgrest.postgrest
 import kotlinx.coroutines.*
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.decodeFromJsonElement
@@ -36,7 +37,7 @@ class BleService : Service() {
     lateinit var guptEngine: GuptEngine
 
     private var bluetoothAdapter: BluetoothAdapter? = null
-    private val GUPT_SERVICE_UUID = UUID.fromString("0000GUPT-0000-1000-8000-00805F9B34FB")
+    private val GUPT_SERVICE_UUID = UUID.fromString("00006097-0000-1000-8000-00805F9B34FB")
     
     private val serviceScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
@@ -76,7 +77,11 @@ class BleService : Service() {
         Log.i("BleService", "BleService started. Initiating background BLE scan.")
         
         val notification = createNotification()
-        startForeground(NOTIFICATION_ID, notification)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            startForeground(NOTIFICATION_ID, notification, android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE)
+        } else {
+            startForeground(NOTIFICATION_ID, notification)
+        }
         
         startBleScanning()
         startRealtimeListener()
@@ -104,7 +109,44 @@ class BleService : Service() {
                 changes.collect { insert ->
                     val newMsg = jsonConfig.decodeFromJsonElement<EncryptedMessage>(insert.record)
                     Log.i("BleService", "New background message received from ${newMsg.sender_id}")
-                    showNewMessageNotification(newMsg)
+                    
+                    val plaintext = try {
+                        val decodedStr = String(android.util.Base64.decode(newMsg.encrypted_payload, android.util.Base64.NO_WRAP))
+                        try {
+                            val payload = jsonConfig.decodeFromString<com.gupt.presentation.viewmodels.MessagePayload>(decodedStr)
+                            payload.text
+                        } catch(e: Exception) { decodedStr }
+                    } catch(e: Exception) { "Encrypted Message" }
+
+                    // Add to SessionManager or update existing
+                    if (SessionManager.conversations.any { it.id == newMsg.sender_id }) {
+                        SessionManager.updateConversation(newMsg.sender_id, plaintext, 1)
+                    } else {
+                        // Fetch user profile to add them to contacts
+                        try {
+                            val usersList = SupabaseConfig.client.postgrest["user_profiles"]
+                                .select {
+                                    filter { eq("username", newMsg.sender_id) }
+                                }.decodeList<com.gupt.domain.model.UserProfile>()
+                            
+                            if (usersList.isNotEmpty()) {
+                                val peer = usersList.first()
+                                val newConv = com.gupt.domain.model.Conversation(
+                                    id = peer.username,
+                                    name = peer.display_name.ifBlank { peer.username },
+                                    lastMessage = plaintext,
+                                    time = java.text.SimpleDateFormat("HH:mm", java.util.Locale.getDefault()).format(java.util.Date()),
+                                    unreadCount = 1,
+                                    avatarUrl = peer.avatar_url ?: "https://ui-avatars.com/api/?name=${peer.username}&background=random&color=fff&size=128"
+                                )
+                                SessionManager.addConversation(newConv)
+                            }
+                        } catch (e: Exception) {
+                            Log.e("BleService", "Failed to fetch user profile for new message", e)
+                        }
+                    }
+                    
+                    showNewMessageNotification(newMsg, plaintext)
                 }
             } catch (e: Exception) {
                 Log.e("BleService", "Realtime listener error", e)
@@ -113,18 +155,22 @@ class BleService : Service() {
     }
 
     private fun startBleScanning() {
-        val scanner = bluetoothAdapter?.bluetoothLeScanner
-        if (scanner == null) {
-            Log.e("BleService", "Bluetooth LE Scanner not available.")
-            return
+        try {
+            val scanner = bluetoothAdapter?.bluetoothLeScanner
+            if (scanner == null) {
+                Log.e("BleService", "Bluetooth LE Scanner not available.")
+                return
+            }
+
+            val settings = ScanSettings.Builder()
+                .setScanMode(ScanSettings.SCAN_MODE_LOW_POWER)
+                .build()
+
+            scanner.startScan(null, settings, scanCallback)
+            Log.i("BleService", "BLE Scan started successfully.")
+        } catch (e: SecurityException) {
+            Log.e("BleService", "Missing Bluetooth Permissions! Scan aborted.", e)
         }
-
-        val settings = ScanSettings.Builder()
-            .setScanMode(ScanSettings.SCAN_MODE_LOW_POWER)
-            .build()
-
-        scanner.startScan(null, settings, scanCallback)
-        Log.i("BleService", "BLE Scan started successfully.")
     }
 
     private val scanCallback = object : ScanCallback() {
@@ -200,18 +246,13 @@ class BleService : Service() {
             .build()
     }
 
-    private fun showNewMessageNotification(msg: EncryptedMessage) {
+    private fun showNewMessageNotification(msg: EncryptedMessage, plaintext: String) {
         val builder = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             Notification.Builder(this, MSG_CHANNEL_ID)
         } else {
             @Suppress("DEPRECATION")
             Notification.Builder(this)
         }
-        
-        // MOCK DECRYPTION to show preview
-        val plaintext = try {
-            String(android.util.Base64.decode(msg.encrypted_payload, android.util.Base64.NO_WRAP))
-        } catch(e: Exception) { "Encrypted Message" }
         
         val notification = builder
             .setContentTitle("New message from ${msg.sender_id}")

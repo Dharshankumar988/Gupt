@@ -1,0 +1,13 @@
+[package]
+name = "gupt-battery"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+description = "Battery-aware power management for the Gupt platform"
+
+[dependencies]
+gupt-common = { workspace = true }
+serde = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }

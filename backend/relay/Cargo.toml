@@ -1,0 +1,16 @@
+[package]
+name = "gupt-relay"
+version.workspace = true
+edition.workspace = true
+description = "Encrypted relay message service for the Gupt backend"
+
+[dependencies]
+gupt-models = { workspace = true }
+gupt-repositories = { workspace = true }
+sqlx = { workspace = true }
+uuid = { workspace = true }
+serde = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+chrono = { workspace = true }
+base64 = { workspace = true }

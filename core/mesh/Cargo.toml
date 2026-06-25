@@ -1,0 +1,14 @@
+[package]
+name = "gupt-mesh"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+gupt-common = { workspace = true }
+gupt-transport = { workspace = true }
+gupt-queue = { workspace = true }
+serde = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+uuid = { workspace = true }
+chrono = { workspace = true }

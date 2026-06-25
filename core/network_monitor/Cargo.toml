@@ -1,0 +1,15 @@
+[package]
+name = "gupt-network-monitor"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+description = "Network state monitoring for the Gupt platform"
+
+[dependencies]
+gupt-common = { workspace = true }
+serde = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+async-trait = { workspace = true }
+tokio = { workspace = true }

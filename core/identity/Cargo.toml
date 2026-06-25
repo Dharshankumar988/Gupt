@@ -1,0 +1,17 @@
+[package]
+name = "gupt-identity"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+description = "Identity management for the Gupt platform"
+
+[dependencies]
+gupt-common = { workspace = true }
+gupt-crypto = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+uuid = { workspace = true }
+chrono = { workspace = true }

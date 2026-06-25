@@ -1,0 +1,11 @@
+[package]
+name = "gupt-queue"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+gupt-common = { workspace = true }
+serde = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+chrono = { workspace = true }

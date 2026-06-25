@@ -1,0 +1,19 @@
+name: GuPT
+options:
+  bundleIdPrefix: com.gupt
+targets:
+  GuPT:
+    type: application
+    platform: iOS
+    deploymentTarget: "16.0"
+    sources:
+      - path: GuPT
+    settings:
+      base:
+        INFOPLIST_FILE: GuPT/Info.plist
+        PRODUCT_BUNDLE_IDENTIFIER: com.gupt.app
+        MARKETING_VERSION: 1.0.0
+        CURRENT_PROJECT_VERSION: 1
+    dependencies:
+      - framework: GuPTCore.xcframework
+        embed: true

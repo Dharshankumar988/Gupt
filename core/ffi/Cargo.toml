@@ -1,0 +1,21 @@
+[package]
+name = "gupt-ffi"
+version.workspace = true
+edition.workspace = true
+
+[lib]
+crate-type = ["cdylib", "staticlib"]
+
+[dependencies]
+gupt-common = { workspace = true }
+gupt-storage = { workspace = true }
+gupt-identity = { workspace = true }
+gupt-routing = { workspace = true }
+gupt-crypto = { workspace = true }
+
+uniffi = { version = "0.27", features = ["cli"] }
+thiserror = { workspace = true }
+tokio = { workspace = true }
+
+[build-dependencies]
+uniffi_build = "0.27"

@@ -1,0 +1,12 @@
+[package]
+name = "gupt-database"
+version.workspace = true
+edition.workspace = true
+description = "Database connection pool and migration runner for the Gupt backend"
+
+[dependencies]
+sqlx = { workspace = true }
+tokio = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+dotenvy = { workspace = true }

@@ -1,0 +1,17 @@
+[package]
+name = "gupt-auth"
+version.workspace = true
+edition.workspace = true
+description = "Authentication service for the Gupt backend (JWT, challenge-response)"
+
+[dependencies]
+gupt-models = { workspace = true }
+jsonwebtoken = { workspace = true }
+sha2 = { workspace = true }
+rand = { workspace = true }
+chrono = { workspace = true }
+uuid = { workspace = true }
+serde = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+hex = { workspace = true }

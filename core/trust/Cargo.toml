@@ -1,0 +1,14 @@
+[package]
+name = "gupt-trust"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+description = "Trust scoring engine for mesh peers in the Gupt platform"
+
+[dependencies]
+gupt-common = { workspace = true }
+serde = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+chrono = { workspace = true }

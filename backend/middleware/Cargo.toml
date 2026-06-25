@@ -1,0 +1,15 @@
+[package]
+name = "gupt-middleware"
+version.workspace = true
+edition.workspace = true
+description = "Axum middleware for JWT authentication in the Gupt backend"
+
+[dependencies]
+gupt-auth = { workspace = true }
+gupt-models = { workspace = true }
+axum = { workspace = true }
+tower = { workspace = true }
+serde = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+uuid = { workspace = true }

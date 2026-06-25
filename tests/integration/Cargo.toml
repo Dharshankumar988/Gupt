@@ -1,0 +1,17 @@
+[package]
+name = "gupt-integration-tests"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+gupt-common = { workspace = true }
+gupt-crypto = { workspace = true }
+gupt-storage = { workspace = true }
+gupt-identity = { workspace = true }
+gupt-routing = { workspace = true }
+gupt-transport = { workspace = true }
+gupt-mesh = { workspace = true }
+gupt-sync = { workspace = true }
+
+tokio = { workspace = true }
+tempfile = "3.8"

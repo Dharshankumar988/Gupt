@@ -1,0 +1,56 @@
+# ─── Rust ───
+/target/
+**/*.rs.bk
+Cargo.lock
+*.pdb
+.rustup/
+.cargo/
+
+# ─── Environment ───
+.env
+.env.*
+!.env.example
+
+# ─── IDE ───
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# ─── SQLx offline cache (check in for CI) ───
+# .sqlx/
+
+# ─── Android ───
+apps/android/.gradle/
+apps/android/build/
+apps/android/app/build/
+apps/android/local.properties
+apps/android/*.iml
+apps/android/.idea/
+apps/android/captures/
+apps/android/.externalNativeBuild/
+apps/android/.cxx/
+
+# ─── iOS ───
+apps/ios/build/
+apps/ios/DerivedData/
+apps/ios/*.xcworkspace/xcuserdata/
+apps/ios/*.xcodeproj/xcuserdata/
+apps/ios/*.xcodeproj/project.xcworkspace/xcshareddata/IDEWorkspaceChecks.plist
+apps/ios/Pods/
+
+# ─── UniFFI generated bindings ───
+# Uncomment if you don't want to track generated bindings
+# bindings/
+
+# ─── Coverage ───
+*.profraw
+*.profdata
+lcov.info
+coverage/
+
+# ─── Logs ───
+*.log

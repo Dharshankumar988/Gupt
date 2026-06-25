@@ -1,0 +1,30 @@
+[package]
+name = "gupt-api"
+version.workspace = true
+edition.workspace = true
+description = "Axum HTTP server for the Gupt backend API"
+
+[[bin]]
+name = "gupt-api"
+path = "src/main.rs"
+
+[dependencies]
+gupt-auth = { workspace = true }
+gupt-database = { workspace = true }
+gupt-models = { workspace = true }
+gupt-repositories = { workspace = true }
+gupt-relay = { workspace = true }
+gupt-middleware = { workspace = true }
+gupt-calls = { workspace = true }
+axum = { workspace = true }
+tokio = { workspace = true }
+tower = { workspace = true }
+tower-http = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+uuid = { workspace = true }
+dotenvy = { workspace = true }
+bcrypt = { workspace = true }
+sqlx = { workspace = true }

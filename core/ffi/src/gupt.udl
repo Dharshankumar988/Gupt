@@ -1,0 +1,94 @@
+namespace gupt {
+    [Throws=GuptError]
+    GuptEngine initialize(string db_path, string pin);
+};
+
+[Error]
+enum GuptError {
+    "Crypto",
+    "Storage",
+    "Transport",
+    "Identity",
+    "Network",
+    "Serialization",
+    "InvalidInput",
+    "NotFound",
+    "Unauthorized",
+    "Internal"
+};
+
+dictionary Message {
+    string id;
+    string conversation_id;
+    string sender_id;
+    string recipient_id;
+    string message_type;
+    string payload;
+    u32 ttl_seconds;
+    string delivery_status;
+    string created_at;
+};
+
+dictionary Conversation {
+    string id;
+    string? display_name;
+    boolean is_group;
+    string created_at;
+    string updated_at;
+    string? last_message_at;
+};
+
+dictionary Peer {
+    string id;
+    string? display_name;
+    double trust_score;
+    boolean is_blocked;
+};
+
+enum DeliveryStatus {
+    "Pending",
+    "Sent",
+    "Delivered",
+    "Read",
+    "Failed",
+    "Expired"
+};
+
+interface GuptEngine {
+    void lock();
+    boolean is_unlocked();
+    
+    [Throws=GuptError]
+    string send_message(string conversation_id, string content);
+    
+    [Throws=GuptError]
+    sequence<Conversation> get_conversations();
+    
+    [Throws=GuptError]
+    sequence<Message> get_messages(string conversation_id);
+    
+    [Throws=GuptError]
+    sequence<Peer> get_nearby_peers();
+
+    // Call Engine methods
+    [Throws=GuptError]
+    string start_call(string phone_number);
+
+    [Throws=GuptError]
+    void accept_call(string session_id);
+
+    [Throws=GuptError]
+    void reject_call(string session_id);
+
+    [Throws=GuptError]
+    void end_call(string session_id);
+
+    [Throws=GuptError]
+    void mute();
+
+    [Throws=GuptError]
+    void unmute();
+
+    [Throws=GuptError]
+    void toggle_speaker();
+};

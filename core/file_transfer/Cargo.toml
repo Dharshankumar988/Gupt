@@ -1,0 +1,14 @@
+[package]
+name = "gupt-file-transfer"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+gupt-common = { workspace = true }
+gupt-transport = { workspace = true }
+gupt-crypto = { workspace = true }
+serde = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+uuid = { workspace = true }
+chrono = { workspace = true }

@@ -1,0 +1,12 @@
+[package]
+name = "gupt-models"
+version.workspace = true
+edition.workspace = true
+description = "Database models and DTOs for the Gupt backend"
+
+[dependencies]
+serde = { workspace = true }
+sqlx = { workspace = true }
+uuid = { workspace = true }
+chrono = { workspace = true }
+thiserror = { workspace = true }

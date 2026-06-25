@@ -4,17 +4,49 @@ import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.Service
+import android.bluetooth.BluetoothAdapter
+import android.bluetooth.BluetoothManager
+import android.bluetooth.le.ScanCallback
+import android.bluetooth.le.ScanResult
+import android.bluetooth.le.ScanSettings
 import android.content.Context
 import android.content.Intent
 import android.os.Build
 import android.os.IBinder
 import android.util.Log
+import com.gupt.ffi.GuptEngine
+import com.gupt.SupabaseConfig
+import com.gupt.domain.SessionManager
+import com.gupt.domain.model.EncryptedMessage
+import dagger.hilt.android.AndroidEntryPoint
+import io.github.jan.supabase.realtime.PostgresAction
+import io.github.jan.supabase.realtime.channel
+import io.github.jan.supabase.realtime.postgresChangeFlow
+import io.github.jan.supabase.realtime.realtime
+import kotlinx.coroutines.*
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.decodeFromJsonElement
+import javax.inject.Inject
+import java.util.UUID
 
+@AndroidEntryPoint
 class BleService : Service() {
+
+    @Inject
+    lateinit var guptEngine: GuptEngine
+
+    private var bluetoothAdapter: BluetoothAdapter? = null
+    private val GUPT_SERVICE_UUID = UUID.fromString("0000GUPT-0000-1000-8000-00805F9B34FB")
+    
+    private val serviceScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
     companion object {
         const val CHANNEL_ID = "GuptBleChannel"
+        const val MSG_CHANNEL_ID = "GuptMessagesChannel"
         const val NOTIFICATION_ID = 1001
+        
+        // Exposes realtime proximity state to the UI for automatic transport switching
+        val isMeshNetworkActive = kotlinx.coroutines.flow.MutableStateFlow(false)
         
         fun startService(context: Context) {
             val startIntent = Intent(context, BleService::class.java)
@@ -35,36 +67,103 @@ class BleService : Service() {
         super.onCreate()
         Log.i("BleService", "BleService created.")
         createNotificationChannel()
+        
+        val bluetoothManager = getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager
+        bluetoothAdapter = bluetoothManager.adapter
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        Log.i("BleService", "BleService started. Initiating background BLE scan & advertise.")
+        Log.i("BleService", "BleService started. Initiating background BLE scan.")
         
         val notification = createNotification()
-        
-        // Start as a foreground service to ensure background execution on modern Android
         startForeground(NOTIFICATION_ID, notification)
         
-        // TODO: Call UniFFI bound Rust method to start BLE transport
-        // GuptEngine.startTransport(TransportType.Ble)
+        startBleScanning()
+        startRealtimeListener()
 
-        // START_STICKY tells the OS to restart the service if it's killed due to memory pressure
         return START_STICKY
     }
 
+    private fun startRealtimeListener() {
+        val currentUser = SessionManager.currentUser?.username ?: return
+        
+        serviceScope.launch {
+            try {
+                val channel = SupabaseConfig.client.realtime.channel("global_recipient_$currentUser")
+                val changes = channel.postgresChangeFlow<PostgresAction.Insert>(schema = "public") {
+                    table = "encrypted_messages"
+                    filter = "recipient_id=eq.$currentUser"
+                }
+                
+                SupabaseConfig.client.realtime.connect()
+                channel.subscribe()
+                
+                Log.i("BleService", "Subscribed to Supabase Realtime for $currentUser")
+                
+                val jsonConfig = Json { ignoreUnknownKeys = true }
+                changes.collect { insert ->
+                    val newMsg = jsonConfig.decodeFromJsonElement<EncryptedMessage>(insert.record)
+                    Log.i("BleService", "New background message received from ${newMsg.sender_id}")
+                    showNewMessageNotification(newMsg)
+                }
+            } catch (e: Exception) {
+                Log.e("BleService", "Realtime listener error", e)
+            }
+        }
+    }
+
+    private fun startBleScanning() {
+        val scanner = bluetoothAdapter?.bluetoothLeScanner
+        if (scanner == null) {
+            Log.e("BleService", "Bluetooth LE Scanner not available.")
+            return
+        }
+
+        val settings = ScanSettings.Builder()
+            .setScanMode(ScanSettings.SCAN_MODE_LOW_POWER)
+            .build()
+
+        scanner.startScan(null, settings, scanCallback)
+        Log.i("BleService", "BLE Scan started successfully.")
+    }
+
+    private val scanCallback = object : ScanCallback() {
+        override fun onScanResult(callbackType: Int, result: ScanResult?) {
+            result?.let {
+                val peerId = it.device.address
+                val rssi = it.rssi.toShort()
+                
+                // Pass real-time proximity to Rust's RoutingEngine
+                guptEngine.updatePeerProximity(peerId, rssi)
+                Log.d("BleService", "Reported peer $peerId with RSSI $rssi to Rust FFI")
+                
+                // Auto-switch UI to Mesh mode if signal is reasonably strong
+                if (rssi > -80) {
+                    isMeshNetworkActive.value = true
+                }
+            }
+        }
+
+        override fun onScanFailed(errorCode: Int) {
+            Log.e("BleService", "BLE Scan failed with error: $errorCode")
+        }
+    }
+
     override fun onBind(intent: Intent?): IBinder? {
-        return null // We don't provide binding, it's a started service
+        return null
     }
 
     override fun onDestroy() {
-        Log.i("BleService", "BleService destroyed. Stopping BLE transport.")
-        // TODO: Call UniFFI bound Rust method to stop BLE transport
-        // GuptEngine.stopTransport(TransportType.Ble)
+        Log.i("BleService", "BleService destroyed. Stopping BLE scanning.")
+        bluetoothAdapter?.bluetoothLeScanner?.stopScan(scanCallback)
+        serviceScope.cancel()
         super.onDestroy()
     }
 
     private fun createNotificationChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val manager = getSystemService(NotificationManager::class.java)
+
             val serviceChannel = NotificationChannel(
                 CHANNEL_ID,
                 "Gupt Background Connection",
@@ -72,9 +171,16 @@ class BleService : Service() {
             ).apply {
                 description = "Keeps Gupt connected to nearby peers via BLE"
             }
-            
-            val manager = getSystemService(NotificationManager::class.java)
             manager.createNotificationChannel(serviceChannel)
+            
+            val msgChannel = NotificationChannel(
+                MSG_CHANNEL_ID,
+                "Gupt Messages",
+                NotificationManager.IMPORTANCE_HIGH
+            ).apply {
+                description = "Notifications for new secure messages"
+            }
+            manager.createNotificationChannel(msgChannel)
         }
     }
 
@@ -89,7 +195,32 @@ class BleService : Service() {
         return builder
             .setContentTitle("Gupt is running")
             .setContentText("Discovering nearby peers securely...")
-            // .setSmallIcon(R.mipmap.ic_launcher_round)
+            // Need a real icon in production
+            .setSmallIcon(android.R.drawable.stat_sys_data_bluetooth)
             .build()
+    }
+
+    private fun showNewMessageNotification(msg: EncryptedMessage) {
+        val builder = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            Notification.Builder(this, MSG_CHANNEL_ID)
+        } else {
+            @Suppress("DEPRECATION")
+            Notification.Builder(this)
+        }
+        
+        // MOCK DECRYPTION to show preview
+        val plaintext = try {
+            String(android.util.Base64.decode(msg.encrypted_payload, android.util.Base64.NO_WRAP))
+        } catch(e: Exception) { "Encrypted Message" }
+        
+        val notification = builder
+            .setContentTitle("New message from ${msg.sender_id}")
+            .setContentText(plaintext)
+            .setSmallIcon(android.R.drawable.stat_notify_chat)
+            .setAutoCancel(true)
+            .build()
+            
+        val manager = getSystemService(NotificationManager::class.java)
+        manager.notify(msg.id.hashCode(), notification)
     }
 }

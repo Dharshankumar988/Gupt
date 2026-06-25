@@ -32,6 +32,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import com.gupt.presentation.theme.PrimaryBlue
+import androidx.hilt.navigation.compose.hiltViewModel
+import com.gupt.presentation.viewmodels.ChatViewModel
 
 enum class TransportRoute { BLE, WIFI_DIRECT, CLOUD, MESH }
 
@@ -49,15 +51,25 @@ data class MessageModel(
 @Composable
 fun ChatScreen(
     username: String,
-    onNavigateBack: () -> Unit
+    onNavigateBack: () -> Unit,
+    viewModel: ChatViewModel = hiltViewModel()
 ) {
     var inputText by remember { mutableStateOf("") }
     var selectedImageUri by remember { mutableStateOf<Uri?>(null) }
     var replyingTo by remember { mutableStateOf<MessageModel?>(null) }
     var selectedMessage by remember { mutableStateOf<MessageModel?>(null) }
     
-    // State holding dynamic messages
-    var messages by remember { mutableStateOf(emptyList<MessageModel>()) }
+    // Load conversation when screen opens
+    LaunchedEffect(username) {
+        viewModel.loadConversation(username)
+    }
+
+    // Auto-Switching based on Proximity State
+    val isMeshActive by com.gupt.services.BleService.isMeshNetworkActive.collectAsState()
+    val activeTransport = if (isMeshActive) TransportRoute.BLE else TransportRoute.CLOUD
+
+    // State holding dynamic messages from ViewModel
+    val messages by viewModel.messages.collectAsState()
 
     val photoPickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
@@ -83,7 +95,7 @@ fun ChatScreen(
                             Icon(Icons.Default.Reply, contentDescription = "Reply")
                         }
                         IconButton(onClick = { 
-                            messages = messages.filterNot { it.id == selectedMessage?.id }
+                            selectedMessage?.id?.let { viewModel.deleteMessage(it) }
                             selectedMessage = null
                         }) {
                             Icon(Icons.Default.Delete, contentDescription = "Delete")
@@ -95,7 +107,23 @@ fun ChatScreen(
                 )
             } else {
                 TopAppBar(
-                    title = { Text(username) },
+                    title = { 
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            val conv = com.gupt.domain.SessionManager.conversations.find { it.id == username }
+                            val dpUrl = conv?.avatarUrl ?: "https://ui-avatars.com/api/?name=\${username}&background=random&color=fff&size=128"
+                            
+                            AsyncImage(
+                                model = dpUrl,
+                                contentDescription = "Profile Picture",
+                                modifier = Modifier
+                                    .size(36.dp)
+                                    .clip(CircleShape),
+                                contentScale = ContentScale.Crop
+                            )
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Text(conv?.name ?: username) 
+                        }
+                    },
                     navigationIcon = {
                         IconButton(onClick = onNavigateBack) {
                             Icon(Icons.Default.ArrowBack, contentDescription = "Back")
@@ -166,17 +194,12 @@ fun ChatScreen(
                     onTextChange = { inputText = it },
                     onAttachImage = { photoPickerLauncher.launch("image/*") },
                     onSend = {
-                        // Create a new message and prepend to list
-                        val newMsg = MessageModel(
-                            id = System.currentTimeMillis().toString(),
+                        viewModel.sendMessage(
                             text = inputText,
-                            isFromMe = true,
-                            time = "Just now",
-                            transportUsed = TransportRoute.CLOUD,
                             imageUrl = selectedImageUri?.toString(),
-                            replyToMessage = replyingTo
+                            replyTo = replyingTo,
+                            transport = activeTransport
                         )
-                        messages = listOf(newMsg) + messages
                         
                         // Reset input state
                         inputText = ""

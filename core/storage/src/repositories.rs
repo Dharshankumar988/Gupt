@@ -71,6 +71,18 @@ pub trait MeshQueueRepository {
     fn remove_expired(&self) -> Result<u64>;
 }
 
+/// Persistence operations for the DTN cloud sync outbox.
+pub trait PendingOutboxRepository {
+    /// Add a message to the pending outbox.
+    fn enqueue(&self, entry: &PendingOutboxEntry) -> Result<()>;
+
+    /// Retrieve all pending outbox entries to upload.
+    fn get_all(&self) -> Result<Vec<PendingOutboxEntry>>;
+
+    /// Remove an entry after it has been successfully synced to the cloud.
+    fn remove(&self, id: &str) -> Result<()>;
+}
+
 // ──────────────────────────── Supporting types ────────────────────────────
 
 /// In-memory representation of a conversation row.
@@ -122,4 +134,16 @@ pub struct MeshQueueEntry {
     pub max_retries: u32,
     /// ISO-8601 expiry timestamp.
     pub expires_at: String,
+}
+
+/// In-memory representation of a pending outbox entry for cloud DTN sync.
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct PendingOutboxEntry {
+    pub id: String,
+    pub conversation_id: String,
+    pub sender_id: String,
+    pub recipient_id: String,
+    pub encrypted_payload: String,
+    pub nonce: String,
+    pub created_at: String,
 }

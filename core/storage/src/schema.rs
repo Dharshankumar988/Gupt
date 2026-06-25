@@ -102,7 +102,17 @@ CREATE TABLE IF NOT EXISTS mesh_queue (
 );
 CREATE INDEX IF NOT EXISTS idx_mesh_queue_priority ON mesh_queue (priority DESC, created_at ASC);
 CREATE INDEX IF NOT EXISTS idx_mesh_queue_expires ON mesh_queue (expires_at);
-
+-- ─── Pending Outbox (Cloud DTN Sync) ───
+CREATE TABLE IF NOT EXISTS pending_outbox (
+    id                  TEXT PRIMARY KEY NOT NULL,
+    conversation_id     TEXT NOT NULL,
+    sender_id           TEXT NOT NULL,
+    recipient_id        TEXT NOT NULL,
+    encrypted_payload   TEXT NOT NULL,
+    nonce               TEXT NOT NULL,
+    created_at          TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+);
+CREATE INDEX IF NOT EXISTS idx_pending_outbox_created ON pending_outbox (created_at);
 -- ─── Pending Transfers ───
 CREATE TABLE IF NOT EXISTS pending_transfers (
     id                  TEXT PRIMARY KEY NOT NULL,

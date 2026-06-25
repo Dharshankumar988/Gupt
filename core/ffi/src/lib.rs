@@ -107,12 +107,33 @@ impl GuptEngine {
             return Err(GuptError::Unauthorized("Identity is locked".to_string()));
         }
         
-        // This is a stub implementation connecting the UDL to the Rust Core.
-        // In reality, this would enqueue the message to the MeshQueueRepository
-        // and trigger the RoutingEngine.
-        
         let msg_id = uuid::Uuid::new_v4().to_string();
-        // println!("Sending message to {}: {}", conversation_id, content);
+        let now = chrono::Utc::now().to_rfc3339();
+        
+        // 1. Encrypt the payload using a dummy key for now (in real app, use DH exchange)
+        let dummy_key = [42u8; 32];
+        let encrypted = gupt_crypto::encryption::encrypt(content.as_bytes(), &dummy_key)
+            .map_err(|e| GuptError::Crypto(e.to_string()))?;
+            
+        use base64::Engine;
+        let encoded_payload = base64::engine::general_purpose::STANDARD.encode(&encrypted.ciphertext);
+        let encoded_nonce = base64::engine::general_purpose::STANDARD.encode(&encrypted.nonce);
+
+        // 2. Queue in DTN pending outbox
+        let entry = gupt_storage::repositories::PendingOutboxEntry {
+            id: msg_id.clone(),
+            conversation_id: conversation_id.clone(),
+            sender_id: "local_user".to_string(), // In real app, get from identity_manager
+            recipient_id: conversation_id.clone(), // Assuming 1:1 chat for now
+            encrypted_payload: encoded_payload,
+            nonce: encoded_nonce,
+            created_at: now,
+        };
+        
+        if let Some(db) = self.db.blocking_lock().as_ref() {
+            use gupt_storage::repositories::PendingOutboxRepository;
+            db.enqueue(&entry).map_err(|e| GuptError::Storage(e.to_string()))?;
+        }
         
         Ok(msg_id)
     }
@@ -145,6 +166,61 @@ impl GuptEngine {
                 is_blocked: false,
             }
         ])
+    }
+
+    // ────────────────────────────────────────────────────────────────────────────
+    // DTN Cloud Sync Methods
+    // ────────────────────────────────────────────────────────────────────────────
+
+    pub fn get_pending_outbox(&self) -> Result<Vec<Message>, GuptError> {
+        if let Some(db) = self.db.blocking_lock().as_ref() {
+            use gupt_storage::repositories::PendingOutboxRepository;
+            let entries = db.get_all().map_err(|e| GuptError::Storage(e.to_string()))?;
+            
+            let mut msgs = Vec::new();
+            for entry in entries {
+                msgs.push(Message {
+                    id: entry.id,
+                    conversation_id: entry.conversation_id,
+                    sender_id: entry.sender_id,
+                    recipient_id: entry.recipient_id,
+                    message_type: "text".to_string(),
+                    payload: entry.encrypted_payload, // Note: payload contains base64 ciphertext
+                    ttl_seconds: 86400,
+                    delivery_status: "Pending".to_string(),
+                    created_at: entry.created_at,
+                });
+            }
+            Ok(msgs)
+        } else {
+            Err(GuptError::Storage("Database not initialized".to_string()))
+        }
+    }
+
+    pub fn remove_from_outbox(&self, message_id: String) -> Result<(), GuptError> {
+        if let Some(db) = self.db.blocking_lock().as_ref() {
+            use gupt_storage::repositories::PendingOutboxRepository;
+            db.remove(&message_id).map_err(|e| GuptError::Storage(e.to_string()))?;
+            Ok(())
+        } else {
+            Err(GuptError::Storage("Database not initialized".to_string()))
+        }
+    }
+
+    // ────────────────────────────────────────────────────────────────────────────
+    // Mesh Routing & Proximity
+    // ────────────────────────────────────────────────────────────────────────────
+
+    pub fn update_peer_proximity(&self, peer_id: String, rssi: i16) -> Result<(), GuptError> {
+        // In a complete implementation, this would update an in-memory proximity map
+        // or trigger a RoutingEngine recalculation for active transfers.
+        // For now, we accept the RSSI value from Android's BluetoothLeScanner.
+        // println!("Updated proximity for peer {}: {} dBm", peer_id, rssi);
+        
+        // Let's pretend we pass this context to the RoutingEngine later
+        let _ = self.routing_engine.blocking_lock(); 
+        
+        Ok(())
     }
 
     // ────────────────────────────────────────────────────────────────────────────

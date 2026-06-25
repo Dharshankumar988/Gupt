@@ -75,12 +75,63 @@ impl Database {
         Ok(())
     }
 
-    /// Borrow the underlying connection for direct queries.
-    ///
-    /// Prefer using repository traits instead.
     pub fn connection(&self) -> Result<&Connection> {
         self.conn
             .as_ref()
             .ok_or(StorageError::DatabaseOpen("database not open".into()))
+    }
+}
+
+use crate::repositories::{PendingOutboxEntry, PendingOutboxRepository};
+use rusqlite::params;
+
+impl PendingOutboxRepository for Database {
+    fn enqueue(&self, entry: &PendingOutboxEntry) -> Result<()> {
+        let conn = self.connection()?;
+        conn.execute(
+            "INSERT INTO pending_outbox (id, conversation_id, sender_id, recipient_id, encrypted_payload, nonce, created_at)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+            params![
+                entry.id,
+                entry.conversation_id,
+                entry.sender_id,
+                entry.recipient_id,
+                entry.encrypted_payload,
+                entry.nonce,
+                entry.created_at,
+            ],
+        ).map_err(|e| StorageError::QueryFailed(e.to_string()))?;
+        Ok(())
+    }
+
+    fn get_all(&self) -> Result<Vec<PendingOutboxEntry>> {
+        let conn = self.connection()?;
+        let mut stmt = conn.prepare("SELECT id, conversation_id, sender_id, recipient_id, encrypted_payload, nonce, created_at FROM pending_outbox")
+            .map_err(|e| StorageError::QueryFailed(e.to_string()))?;
+        
+        let rows = stmt.query_map([], |row| {
+            Ok(PendingOutboxEntry {
+                id: row.get(0)?,
+                conversation_id: row.get(1)?,
+                sender_id: row.get(2)?,
+                recipient_id: row.get(3)?,
+                encrypted_payload: row.get(4)?,
+                nonce: row.get(5)?,
+                created_at: row.get(6)?,
+            })
+        }).map_err(|e| StorageError::QueryFailed(e.to_string()))?;
+
+        let mut entries = Vec::new();
+        for row in rows {
+            entries.push(row.map_err(|e| StorageError::QueryFailed(e.to_string()))?);
+        }
+        Ok(entries)
+    }
+
+    fn remove(&self, id: &str) -> Result<()> {
+        let conn = self.connection()?;
+        conn.execute("DELETE FROM pending_outbox WHERE id = ?1", params![id])
+            .map_err(|e| StorageError::QueryFailed(e.to_string()))?;
+        Ok(())
     }
 }

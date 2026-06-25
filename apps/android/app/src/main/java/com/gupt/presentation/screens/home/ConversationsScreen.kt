@@ -32,7 +32,7 @@ import android.widget.Toast
 import androidx.compose.ui.platform.LocalContext
 import com.gupt.domain.SessionManager
 import com.gupt.domain.NetworkMode
-import com.gupt.domain.model.AppUser
+import com.gupt.domain.model.UserProfile
 import com.gupt.domain.model.BlockedUser
 import com.gupt.domain.model.Conversation
 import com.gupt.SupabaseConfig
@@ -40,6 +40,8 @@ import com.gupt.presentation.theme.PrimaryBlue
 import com.gupt.presentation.theme.AccentTeal
 import io.github.jan.supabase.postgrest.postgrest
 import kotlinx.coroutines.launch
+import coil.compose.AsyncImage
+import androidx.compose.ui.layout.ContentScale
 
 // ConversationPreview moved to domain.model.Conversation
 
@@ -167,20 +169,21 @@ fun ConversationsScreen(
                                 isSearching = true
                                 scope.launch {
                                     try {
-                                        val usersList = SupabaseConfig.client.postgrest["users"]
+                                        val usersList = SupabaseConfig.client.postgrest["user_profiles"]
                                             .select {
                                                 filter { eq("username", searchUsername.trim()) }
-                                            }.decodeList<AppUser>()
+                                            }.decodeList<UserProfile>()
 
                                         if (usersList.isNotEmpty()) {
                                             val peer = usersList.first()
                                             // Create new persistent conversation
                                             val newConv = Conversation(
                                                 id = peer.username,
-                                                name = peer.username,
+                                                name = peer.display_name.ifBlank { peer.username },
                                                 lastMessage = "Connection established",
                                                 time = "Just now",
-                                                unreadCount = 0
+                                                unreadCount = 0,
+                                                avatarUrl = peer.avatar_url ?: "https://ui-avatars.com/api/?name=\${peer.username}&background=random&color=fff&size=128"
                                             )
                                             SessionManager.addConversation(newConv)
                                             showSearchDialog = false
@@ -317,7 +320,7 @@ fun ConversationItem(
             .padding(horizontal = 20.dp, vertical = 16.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // Avatar Placeholder
+        // Avatar
         Box(
             modifier = Modifier
                 .size(52.dp)
@@ -325,11 +328,20 @@ fun ConversationItem(
                 .background(MaterialTheme.colorScheme.surfaceVariant),
             contentAlignment = Alignment.Center
         ) {
-            Text(
-                text = conversation.name.firstOrNull()?.toString() ?: "?",
-                style = MaterialTheme.typography.titleLarge,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
+            if (conversation.avatarUrl != null) {
+                AsyncImage(
+                    model = conversation.avatarUrl,
+                    contentDescription = "Profile Picture",
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Crop
+                )
+            } else {
+                Text(
+                    text = conversation.name.firstOrNull()?.toString()?.uppercase() ?: "?",
+                    style = MaterialTheme.typography.titleLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
         }
         
         Spacer(modifier = Modifier.width(16.dp))

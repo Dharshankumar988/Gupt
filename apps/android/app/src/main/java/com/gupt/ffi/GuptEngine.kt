@@ -25,4 +25,8 @@ class GuptEngine {
     fun sendMessage(conversationId: String, text: String): String {
         return "mock_id"
     }
+
+    fun updatePeerProximity(peerId: String, rssi: Short) {
+        // Mock implementation
+    }
 }

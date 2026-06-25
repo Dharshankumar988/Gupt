@@ -5,6 +5,8 @@ import io.github.jan.supabase.gotrue.Auth
 import io.github.jan.supabase.postgrest.Postgrest
 import io.github.jan.supabase.storage.Storage
 
+import io.github.jan.supabase.realtime.Realtime
+
 object SupabaseConfig {
     // TODO: You MUST replace SUPABASE_KEY with your actual anon key from the Supabase Dashboard!
     private const val SUPABASE_URL = "https://phtecirdpzrxsnuhsapc.supabase.co"
@@ -17,5 +19,6 @@ object SupabaseConfig {
         install(Postgrest)
         install(Auth)
         install(Storage)
+        install(Realtime)
     }
 }

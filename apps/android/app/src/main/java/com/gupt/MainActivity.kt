@@ -11,7 +11,13 @@ import androidx.fragment.app.FragmentActivity
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Modifier
+import android.Manifest
+import android.os.Build
+import com.google.accompanist.permissions.ExperimentalPermissionsApi
+import com.google.accompanist.permissions.rememberMultiplePermissionsState
 import com.gupt.domain.SessionManager
 import com.gupt.presentation.navigation.GuptNavGraph
 import com.gupt.presentation.theme.GuptTheme
@@ -23,6 +29,9 @@ class MainActivity : FragmentActivity() {
         super.onCreate(savedInstanceState)
         
         SessionManager.init(this)
+        
+        // Start Background Mesh & Notification Service
+        com.gupt.services.BleService.startService(this)
 
         if (SessionManager.currentUser != null) {
             showBiometricPrompt()
@@ -61,8 +70,26 @@ class MainActivity : FragmentActivity() {
         biometricPrompt.authenticate(promptInfo)
     }
 
+    @OptIn(ExperimentalPermissionsApi::class)
     private fun renderApp() {
         setContent {
+            val permissionState = rememberMultiplePermissionsState(
+                permissions = buildList {
+                    add(Manifest.permission.BLUETOOTH_SCAN)
+                    add(Manifest.permission.BLUETOOTH_CONNECT)
+                    add(Manifest.permission.ACCESS_FINE_LOCATION)
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                        add(Manifest.permission.POST_NOTIFICATIONS)
+                    }
+                }
+            )
+
+            LaunchedEffect(Unit) {
+                if (!permissionState.allPermissionsGranted) {
+                    permissionState.launchMultiplePermissionRequest()
+                }
+            }
+
             GuptTheme(darkTheme = SessionManager.isDarkMode) {
                 Surface(
                     modifier = Modifier.fillMaxSize(),

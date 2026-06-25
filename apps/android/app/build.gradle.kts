@@ -72,6 +72,9 @@ dependencies {
     implementation("androidx.navigation:navigation-compose:2.7.7")
     implementation("androidx.hilt:hilt-navigation-compose:1.1.0")
     
+    // Logging
+    implementation("com.jakewharton.timber:timber:5.0.1")
+
     // Coil for Image Loading
     implementation("io.coil-kt:coil-compose:2.6.0")
     
@@ -80,7 +83,11 @@ dependencies {
     implementation("io.github.jan-tennert.supabase:postgrest-kt:$supabaseVersion")
     implementation("io.github.jan-tennert.supabase:gotrue-kt:$supabaseVersion")
     implementation("io.github.jan-tennert.supabase:storage-kt:$supabaseVersion")
+    implementation("io.github.jan-tennert.supabase:realtime-kt:$supabaseVersion")
     implementation("io.ktor:ktor-client-android:2.3.11")
+
+    // Accompanist Permissions
+    implementation("com.google.accompanist:accompanist-permissions:0.34.0")
 
     // Hilt for DI
     implementation("com.google.dagger:hilt-android:2.50")

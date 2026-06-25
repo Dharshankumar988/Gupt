@@ -70,6 +70,21 @@ interface GuptEngine {
     [Throws=GuptError]
     sequence<Peer> get_nearby_peers();
 
+    // ────────────────────────────────────────────────────────────────────────────
+    // DTN Cloud Sync Methods
+    // ────────────────────────────────────────────────────────────────────────────
+    [Throws=GuptError]
+    sequence<Message> get_pending_outbox();
+
+    [Throws=GuptError]
+    void remove_from_outbox(string message_id);
+
+    // ────────────────────────────────────────────────────────────────────────────
+    // Mesh Routing & Proximity
+    // ────────────────────────────────────────────────────────────────────────────
+    [Throws=GuptError]
+    void update_peer_proximity(string peer_id, i16 rssi);
+
     // Call Engine methods
     [Throws=GuptError]
     string start_call(string phone_number);
